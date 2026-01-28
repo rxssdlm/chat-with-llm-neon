@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with LLM - Demo Educativo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+            max-height: 800px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 20px 20px 0 0;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .config-panel {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .config-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .config-item {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .config-item label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .config-item input,
+        .config-item select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 30px;
+            background: #fafafa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            text-align: right;
+        }
+
+        .message.assistant {
+            text-align: left;
+        }
+
+        .message-bubble {
+            display: inline-block;
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message.assistant .message-bubble {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-label {
+            font-size: 11px;
+            color: #999;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .input-area {
+            padding: 20px 30px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-container input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .input-container input:focus {
+            border-color: #667eea;
+        }
+
+        .input-container button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .input-container button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .input-container button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: inline-block;
+            padding: 12px 16px;
+            background: #f0f0f0;
+            border-radius: 18px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #fcc;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px 16px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💬 Chat with LLM</h1>
+            <p>Demo educativo - Aprende cómo funcionan los LLMs con GROQ</p>
+        </div>
+
+        <div class="config-panel">
+            <div class="info-box">
+                <strong>📚 Para estudiantes:</strong> Ajusta estos parámetros para ver cómo afectan las respuestas del modelo.
+            </div>
+            <div class="config-row">
+                <div class="config-item">
+                    <label>Modelo:</label>
+                    <select id="modelSelect">
+                        <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Versátil)</option>
+                        <option value="mixtral-8x7b-32768">Mixtral 8x7B (Contexto largo)</option>
+                        <option value="gemma2-9b-it">Gemma 2 9B (Rápido)</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>Temperatura (0.0 - 2.0):</label>
+                    <input type="number" id="temperature" value="0.7" min="0" max="2" step="0.1">
+                </div>
+                <div class="config-item">
+                    <label>Max Tokens:</label>
+                    <input type="number" id="maxTokens" value="1024" min="1" max="8192">
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="messages" id="messages">
+                <div class="info-box">
+                    <strong>👋 Bienvenido</strong><br>
+                    Escribe un mensaje para comenzar. Este demo te muestra cómo:
+                    <ul style="margin-top: 8px; margin-left: 20px;">
+                        <li>Se envían mensajes al modelo LLM</li>
+                        <li>Funciona el prompt y el historial de conversación</li>
+                        <li>El modelo genera respuestas</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Escribe tu mensaje aquí..."
+                        onkeypress="if(event.key === 'Enter') sendMessage()"
+                    >
+                    <button id="sendButton" onclick="sendMessage()">Enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/chat/';
+        let conversationHistory = [];
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+            input.disabled = true;
+
+            // Agregar mensaje del usuario
+            addMessage('user', message);
+            input.value = '';
+
+            // Mostrar loading
+            const loadingId = addMessage('assistant', '', true);
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_history: conversationHistory,
+                        model: document.getElementById('modelSelect').value,
+                        temperature: parseFloat(document.getElementById('temperature').value),
+                        max_tokens: parseInt(document.getElementById('maxTokens').value)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Error al procesar el mensaje');
+                }
+
+                // Remover loading y agregar respuesta
+                removeMessage(loadingId);
+                addMessage('assistant', data.response);
+
+                // Actualizar historial
+                conversationHistory = data.conversation_history;
+
+            } catch (error) {
+                removeMessage(loadingId);
+                addMessage('error', `Error: ${error.message}`);
+            } finally {
+                sendButton.disabled = false;
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        function addMessage(role, content, isLoading = false) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            const messageId = 'msg-' + Date.now() + '-' + Math.random();
+            messageDiv.id = messageId;
+            messageDiv.className = `message ${role}`;
+
+            const label = document.createElement('div');
+            label.className = 'message-label';
+            label.textContent = role === 'user' ? '👤 Tú' : role === 'assistant' ? '🤖 Asistente' : '❌ Error';
+
+            const bubble = document.createElement('div');
+            bubble.className = isLoading ? 'message-bubble loading' : 'message-bubble';
+            if (!isLoading) {
+                bubble.textContent = content;
+            }
+
+            messageDiv.appendChild(label);
+            messageDiv.appendChild(bubble);
+            messagesDiv.appendChild(messageDiv);
+
+            // Scroll al final
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            return messageId;
+        }
+
+        function removeMessage(messageId) {
+            const messageDiv = document.getElementById(messageId);
+            if (messageDiv) {
+                messageDiv.remove();
+            }
+        }
+
+        // Focus en el input al cargar
+        document.getElementById('messageInput').focus();
+    </script>
+</body>
+</html>
