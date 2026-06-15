@@ -25,6 +25,20 @@ class Settings(BaseSettings):
         description="API Key de GROQ. Obtén una en https://console.groq.com/"
     )
     
+        # 🔐 Clave secreta para firmar JWT
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-secret-change-me")
+    # 🔐 Clave secreta para firmar JWT
+    JWT_SECRET_KEY: str = Field(
+    default="dev-secret-change-me",
+    description="Clave secreta para firmar JWT"
+)
+
+    # ⏳ Minutos de expiración del token
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+    default=60,
+    description="Minutos de expiración del JWT"
+)
+
     # Configuración de la aplicación
     app_name: str = Field(
         default="Chat with LLM",
@@ -62,3 +76,4 @@ class Settings(BaseSettings):
 
 # Instancia global de configuración
 settings = Settings()
+

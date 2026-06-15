@@ -1,34 +1,30 @@
 """
-Aplicación principal FastAPI para el chat con LLM.
+Aplicación principal FastAPI del CRM AI Agent (NexusCRM).
 
 Este es el punto de entrada de la aplicación. Configura FastAPI y registra las rutas.
 """
-
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
-from routes.chat import router as chat_router
+from routes.auth import router as auth_router
+from routes.crm import router as crm_router
 
 # Crear la aplicación FastAPI
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="""
-    API para chat con modelos LLM usando GROQ.
-    
-    Esta aplicación está diseñada para enseñar a estudiantes cómo:
-    - Enviar mensajes a un modelo LLM
-    - Entender cómo funcionan los prompts
-    - Ver cómo responde el modelo
-    
+    API del agente CRM NexusCRM, basado en GROQ + Agno.
+
     **Endpoints principales:**
-    - `POST /chat/`: Enviar un mensaje y recibir una respuesta del modelo
-    - `GET /chat/models`: Listar modelos disponibles
-    - `GET /chat/health`: Verificar el estado del servicio
-    - `GET /`: Interfaz web para probar el chat
+    - `POST /auth/login`: Obtener un token JWT
+    - `POST /crm/chat`: Conversar con el agente CRM
+    - `GET /static/crm.html`: Interfaz web del CRM
     """,
     docs_url="/docs",
     redoc_url="/redoc"
@@ -44,30 +40,19 @@ app.add_middleware(
 )
 
 # Registrar las rutas
-app.include_router(chat_router)
+app.include_router(auth_router)
+app.include_router(crm_router)
 
 # Servir archivos estáticos (para la interfaz web)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def read_root():
     """
-    Endpoint raíz que sirve la interfaz web del chat.
+    Redirige a la interfaz web del CRM.
     """
-    try:
-        with open("static/index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return """
-        <html>
-            <head><title>Chat with LLM</title></head>
-            <body>
-                <h1>Chat with LLM</h1>
-                <p>La interfaz web no está disponible. Por favor, usa la documentación en <a href="/docs">/docs</a></p>
-            </body>
-        </html>
-        """
+    return RedirectResponse(url="/static/crm.html")
 
 
 @app.on_event("startup")

@@ -1,0 +1,95 @@
+services:
+
+  # ─────────────────────────────────────────
+  # BASE DE DATOS
+  # ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: chat-llm-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-chatuser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-chatpassword}
+      POSTGRES_DB: ${DB_NAME:-chatdb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-chatuser} -d ${DB_NAME:-chatdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # CACHE / BROKER (Celery lo usa como cola)
+  # ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: chat-llm-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redispassword} --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redispassword}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redispassword}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # BACKEND (FastAPI)
+  # ─────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: chat-llm-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app                        # Host ./ <--> Contenedor /app
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redispassword}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # WORKER DE CELERY
+  # ─────────────────────────────────────────
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: chat-llm-celery
+    command: celery -A core.celery_app worker --loglevel=info
+    volumes:
+      - .:/app                        # mismo codigo que el api
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redispassword}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:    # datos de PostgreSQL
+  redis_data:       # datos persistentes de Redis (AOF)

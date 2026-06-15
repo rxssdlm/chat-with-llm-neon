@@ -9,9 +9,14 @@ from sqlalchemy import engine_from_config, pool
 from models.user import User 
 
 from core.db import Base
-from models.conversation import Conversation
-from models.message import Message
-from models.agent import Agent
+from models.customer import Customer
+from models.product import Product
+from models.opportunity import Opportunity, OpportunityItem
+from models.lead import Lead
+from models.meeting import Meeting
+from models.crm_audit_log import CRMAuditLog
+
+target_metadata = Base.metadata
 
 
 # Alembic Config

@@ -245,6 +245,13 @@ Si encuentras errores:
 - La interfaz web permite probar sin necesidad de herramientas externas
 - Los estudiantes pueden experimentar con diferentes modelos y parámetros
 
+## 🏢 Módulo CRM (Proyecto Final)
+
+Este repositorio incluye un Agente de AI Empresarial tipo CRM para equipos de
+ventas (tool calling, memoria persistente, RBAC, seguridad anti prompt-injection
+y confirmaciones humanas). Ver [README_CRM.md](README_CRM.md) para arquitectura,
+setup, referencia de API y los 5 casos de prueba.
+
 ## 🤝 Contribuciones
 
 Este es un proyecto educativo. Las contribuciones son bienvenidas, especialmente:

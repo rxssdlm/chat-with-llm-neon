@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusCRM - Asistente de Ventas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* ---------- Login ---------- */
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 380px;
+            padding: 30px;
+        }
+
+        .login-card h1 {
+            font-size: 22px;
+            margin-bottom: 4px;
+            color: #134e4a;
+        }
+
+        .login-card p {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .login-card label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 5px;
+            margin-top: 12px;
+        }
+
+        .login-card input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .login-card button {
+            width: 100%;
+            margin-top: 18px;
+            padding: 12px;
+            background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .login-card button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .demo-users {
+            margin-top: 18px;
+            font-size: 12px;
+            color: #777;
+            background: #f4f7f6;
+            border-radius: 8px;
+            padding: 10px 12px;
+            line-height: 1.6;
+        }
+
+        .demo-users b { color: #134e4a; }
+
+        .login-error {
+            margin-top: 12px;
+            background: #fee;
+            color: #c33;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            border: 1px solid #fcc;
+        }
+
+        /* ---------- App ---------- */
+        .app {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            height: 90vh;
+            max-height: 800px;
+            overflow: hidden;
+        }
+
+        .chat-panel {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
+            color: white;
+            padding: 18px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 2px;
+        }
+
+        .header p {
+            opacity: 0.85;
+            font-size: 12px;
+        }
+
+        .header button {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 16px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            background: #fafafa;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user { text-align: right; }
+        .message.assistant { text-align: left; }
+        .message.blocked { text-align: left; }
+
+        .message-bubble {
+            display: inline-block;
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            text-align: left;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
+            color: white;
+        }
+
+        .message.assistant .message-bubble {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.blocked .message-bubble {
+            background: #fff4e5;
+            color: #8a5300;
+            border: 1px solid #ffd9a0;
+        }
+
+        .message-label {
+            font-size: 11px;
+            color: #999;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .tool-calls {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .tool-calls summary {
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .tool-calls pre {
+            white-space: pre-wrap;
+            background: #f4f4f4;
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 4px;
+            font-size: 11px;
+            max-height: 160px;
+            overflow: auto;
+        }
+
+        .input-area {
+            padding: 16px 24px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-container input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .input-container input:focus { border-color: #0f766e; }
+
+        .input-container button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .input-container button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: inline-block;
+            padding: 12px 16px;
+            background: #f0f0f0;
+            border-radius: 18px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        /* ---------- Sidebar ---------- */
+        .sidebar {
+            flex: 1;
+            min-width: 260px;
+            max-width: 320px;
+            background: #f4f7f6;
+            border-left: 1px solid #e0e0e0;
+            padding: 20px;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+
+        .sidebar h2 {
+            font-size: 14px;
+            color: #134e4a;
+            margin-bottom: 12px;
+        }
+
+        .sidebar .field {
+            margin-bottom: 14px;
+        }
+
+        .sidebar .field-label {
+            font-size: 11px;
+            color: #888;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .sidebar .field-value {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+
+        .sidebar .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #cce8e3;
+            color: #0f766e;
+        }
+
+        .sidebar ul {
+            margin: 4px 0 0 16px;
+        }
+
+        .sidebar pre {
+            white-space: pre-wrap;
+            font-size: 11px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 8px;
+            max-height: 160px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN -->
+    <div class="login-card" id="loginCard">
+        <h1>🤖 NexusCRM</h1>
+        <p>Asistente de IA para el equipo de ventas</p>
+
+        <label>Email</label>
+        <input type="email" id="loginEmail" value="vendedor@nexuscrm.com" placeholder="tu@email.com">
+
+        <label>Contraseña</label>
+        <input type="password" id="loginPassword" value="demo1234" placeholder="••••••••">
+
+        <button id="loginButton" onclick="login()">Ingresar</button>
+
+        <div class="demo-users">
+            <b>Usuarios demo</b> (password: <b>demo1234</b>)<br>
+            vendedor@nexuscrm.com — seller<br>
+            manager@nexuscrm.com — manager<br>
+            admin@nexuscrm.com — admin
+        </div>
+
+        <div id="loginError"></div>
+    </div>
+
+    <!-- APP -->
+    <div class="app" id="app" style="display:none;">
+        <div class="chat-panel">
+            <div class="header">
+                <div>
+                    <h1>🤖 NexusCRM</h1>
+                    <p id="userInfo">Asistente de ventas</p>
+                </div>
+                <button onclick="logout()">Cerrar sesión</button>
+            </div>
+
+            <div class="messages" id="messages">
+                <div class="message assistant">
+                    <div class="message-label">🤖 NexusCRM</div>
+                    <div class="message-bubble">¡Hola! Soy NexusCRM, tu asistente de ventas. Puedo ayudarte a buscar clientes, crear oportunidades, agendar reuniones y más. ¿En qué te ayudo?</div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <input
+                        type="text"
+                        id="messageInput"
+                        placeholder="Escribe tu mensaje aquí..."
+                        onkeypress="if(event.key === 'Enter') sendMessage()"
+                    >
+                    <button id="sendButton" onclick="sendMessage()">Enviar</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <h2>📋 Estado de la conversación</h2>
+
+            <div class="field">
+                <div class="field-label">Rol</div>
+                <div class="field-value"><span class="badge" id="roleBadge">-</span></div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Cliente activo</div>
+                <div class="field-value" id="customerInfo">—</div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Oportunidad activa</div>
+                <div class="field-value" id="opportunityInfo">—</div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Acción pendiente de confirmación</div>
+                <div class="field-value" id="pendingInfo">—</div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">session_state (raw)</div>
+                <pre id="rawState">{}</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('nexuscrm_token') || null;
+        let userEmail = localStorage.getItem('nexuscrm_email') || null;
+
+        if (token) {
+            showApp();
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const button = document.getElementById('loginButton');
+            const errorBox = document.getElementById('loginError');
+            errorBox.innerHTML = '';
+            button.disabled = true;
+
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Credenciales inválidas');
+                }
+
+                token = data.access_token;
+                userEmail = email;
+                localStorage.setItem('nexuscrm_token', token);
+                localStorage.setItem('nexuscrm_email', email);
+                showApp();
+            } catch (error) {
+                errorBox.innerHTML = `<div class="login-error">${error.message}</div>`;
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function logout() {
+            token = null;
+            userEmail = null;
+            localStorage.removeItem('nexuscrm_token');
+            localStorage.removeItem('nexuscrm_email');
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('loginCard').style.display = 'block';
+        }
+
+        function showApp() {
+            document.getElementById('loginCard').style.display = 'none';
+            document.getElementById('app').style.display = 'flex';
+            document.getElementById('userInfo').textContent = userEmail || 'Asistente de ventas';
+        }
+
+        // Markdown muy simple: **negrita**, listas "- " y saltos de linea
+        function renderMarkdown(text) {
+            const escaped = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+
+            const lines = escaped.split('\n');
+            let html = '';
+            let inList = false;
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                    if (!inList) { html += '<ul>'; inList = true; }
+                    html += `<li>${trimmed.slice(2)}</li>`;
+                } else {
+                    if (inList) { html += '</ul>'; inList = false; }
+                    if (trimmed === '') {
+                        html += '<br>';
+                    } else {
+                        html += `<div>${trimmed}</div>`;
+                    }
+                }
+            }
+            if (inList) html += '</ul>';
+
+            // negrita **texto**
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            return html;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+            input.disabled = true;
+
+            addMessage('user', message);
+            input.value = '';
+
+            const loadingId = addMessage('assistant', '', true);
+
+            try {
+                const response = await fetch('/crm/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                if (response.status === 401) {
+                    throw new Error('Sesión expirada, vuelve a iniciar sesión.');
+                }
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Error al procesar el mensaje');
+                }
+
+                removeMessage(loadingId);
+
+                if (data.blocked) {
+                    addMessage('blocked', data.reply, false, '🚫 Bloqueado');
+                } else {
+                    addMessage('assistant', data.reply, false, '🤖 NexusCRM', data.tool_calls);
+                }
+
+                updateSidebar(data.session_state || {});
+
+            } catch (error) {
+                removeMessage(loadingId);
+                addMessage('blocked', `Error: ${error.message}`, false, '❌ Error');
+                if (error.message.includes('Sesión expirada')) {
+                    setTimeout(logout, 1500);
+                }
+            } finally {
+                sendButton.disabled = false;
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        function addMessage(role, content, isLoading = false, label = null, toolCalls = null) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            const messageId = 'msg-' + Date.now() + '-' + Math.random();
+            messageDiv.id = messageId;
+            messageDiv.className = `message ${role}`;
+
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'message-label';
+            labelDiv.textContent = label || (role === 'user' ? '👤 Tú' : '🤖 NexusCRM');
+
+            const bubble = document.createElement('div');
+            bubble.className = isLoading ? 'message-bubble loading' : 'message-bubble';
+            if (!isLoading) {
+                bubble.innerHTML = renderMarkdown(content);
+
+                if (toolCalls && toolCalls.length > 0) {
+                    const details = document.createElement('details');
+                    details.className = 'tool-calls';
+                    const summary = document.createElement('summary');
+                    summary.textContent = `🔧 ${toolCalls.length} herramienta(s) ejecutada(s)`;
+                    const pre = document.createElement('pre');
+                    pre.textContent = JSON.stringify(toolCalls, null, 2);
+                    details.appendChild(summary);
+                    details.appendChild(pre);
+                    bubble.appendChild(details);
+                }
+            }
+
+            messageDiv.appendChild(labelDiv);
+            messageDiv.appendChild(bubble);
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            return messageId;
+        }
+
+        function removeMessage(messageId) {
+            const messageDiv = document.getElementById(messageId);
+            if (messageDiv) messageDiv.remove();
+        }
+
+        function updateSidebar(state) {
+            document.getElementById('roleBadge').textContent = state.user_role || '-';
+
+            const customer = state.customer;
+            document.getElementById('customerInfo').innerHTML = customer
+                ? `<b>${customer.name}</b>${customer.company ? ' · ' + customer.company : ''}`
+                : '—';
+
+            const opp = state.opportunity;
+            if (opp) {
+                let itemsHtml = '';
+                if (opp.items && opp.items.length) {
+                    itemsHtml = '<ul>' + opp.items.map(i => `<li>${i.quantity} x ${i.product_name} ($${i.unit_price})</li>`).join('') + '</ul>';
+                }
+                document.getElementById('opportunityInfo').innerHTML =
+                    `<b>${opp.name}</b><br>Etapa: ${opp.stage}<br>Total: $${opp.total_amount}` +
+                    (opp.discount_pct ? `<br>Descuento: ${opp.discount_pct}%` : '') +
+                    itemsHtml;
+            } else {
+                document.getElementById('opportunityInfo').textContent = '—';
+            }
+
+            const pending = state.pending_action;
+            document.getElementById('pendingInfo').textContent = pending
+                ? `${pending.type}: ${pending.discount_pct}% (oportunidad #${pending.opportunity_id})`
+                : '—';
+
+            document.getElementById('rawState').textContent = JSON.stringify(state, null, 2);
+        }
+
+        document.getElementById('loginPassword').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>
