@@ -11,7 +11,7 @@ acciones sensibles.
 ## 🎓 Conceptos clave (para quien empieza con agentes de AI)
 
 Si es la primera vez que exploras un proyecto de "agentes", esta sección explica
-los 5 conceptos centrales que aparecen aquí y **por qué importan**, antes de entrar
+los conceptos centrales que aparecen aquí y **por qué importan**, antes de entrar
 al detalle técnico de las siguientes secciones.
 
 ### ¿Qué hace que esto sea un "agente" y no un simple chatbot?
@@ -85,9 +85,39 @@ acción de inmediato**: responde `requires_confirmation: true` junto con una
 pregunta, y solo procede cuando el usuario confirma explícitamente en un **mensaje
 nuevo**. Ver la máquina de estados de `pending_action` en las secciones 6.3 y 6.4.
 
+### 6. ¿Por qué Agno? (en vez de llamar directo a la API de OpenAI/Claude/GROQ)
+
+Si nunca has usado un framework de agentes, es razonable preguntarse: *¿por qué no
+simplemente le hago un `fetch`/`requests.post` a la API de Chat Completions de
+OpenAI o Anthropic y ya?* Técnicamente se podría, pero el framework (en este caso
+**Agno**) se encarga de varias cosas que, si no, tendrías que programar a mano:
+
+- **El "loop" de tool calling.** Con una API directa, tú mismo tendrías que: enviar
+  el mensaje, revisar si la respuesta del modelo es "quiero llamar a esta función
+  con estos argumentos", ejecutar esa función en Python, devolverle el resultado al
+  modelo, y repetir hasta que el modelo conteste texto normal. Agno ya implementa
+  ese ciclo completo; tú solo escribes las funciones `@tool`.
+- **Memoria persistente sin tablas propias.** Como vimos en el concepto 2, Agno
+  guarda y recupera `session_state` e historial automáticamente vía `PostgresDb`.
+  Con una API directa, tendrías que diseñar tus propias tablas, serializar el
+  historial y armar el array de mensajes en cada request.
+- **Independencia del proveedor del modelo.** Cada proveedor (OpenAI, Anthropic,
+  GROQ) tiene un formato ligeramente distinto para describir tools y para las
+  respuestas de "function calling". En Agno, cambiar de modelo es casi solo cambiar
+  una línea (`Groq(id="llama-3.3-70b-versatile")` por `OpenAIChat(id="gpt-4o")`,
+  por ejemplo); el resto del código (tools, `session_state`, instrucciones) no
+  cambia.
+
+**El costo de esto**: Agno agrega una capa de abstracción y una dependencia más,
+y oculta parte del detalle "de bajo nivel" del protocolo de tool calling, lo que da
+menos control fino que escribirlo a mano. Para un agente con 11 tools, memoria
+persistente y múltiples roles como este, ese costo vale la pena: el framework
+absorbe el código repetitivo (boilerplate) y reduce la posibilidad de implementar
+mal el protocolo de tool calling.
+
 ---
 
-Con estos 5 conceptos en mente, el resto del documento detalla cómo está
+Con estos conceptos en mente, el resto del documento detalla cómo está
 implementado cada uno paso a paso.
 
 ---
@@ -141,7 +171,44 @@ source venv/bin/activate  # En Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2.2 Variables de entorno (`.env`)
+### 2.2 Base de datos: Neon (PostgreSQL serverless)
+
+Este proyecto usa [Neon](https://neon.tech/) como proveedor de PostgreSQL. Neon es
+un servicio de **Postgres serverless**: en vez de instalar y administrar tu propio
+servidor de base de datos, creas un proyecto en su web y te dan una base de datos
+Postgres ya lista, accesible por internet mediante una cadena de conexión. Tiene un
+plan gratuito generoso (suficiente para este proyecto) y la base de datos "se
+duerme" automáticamente cuando no recibe tráfico, despertando sola con la primera
+conexión nueva.
+
+Así se configuró para NexusCRM:
+
+1. **Crear el proyecto en Neon**: en [console.neon.tech](https://console.neon.tech/),
+   "New Project" → se elige nombre, región y versión de Postgres. Neon crea
+   automáticamente una base de datos (`neondb`) y un usuario.
+2. **Copiar la cadena de conexión (connection string)**: el dashboard de Neon la
+   muestra lista para copiar, con el formato:
+
+   ```
+   postgresql://usuario:password@ep-xxxx-pooler.region.aws.neon.tech/neondb?sslmode=require
+   ```
+
+   - `-pooler` en el host: usa el **connection pooler** de Neon (PgBouncer), recomendado
+     para apps web porque maneja mejor muchas conexiones cortas.
+   - `sslmode=require`: Neon exige conexiones cifradas (TLS).
+3. **Pegarla en `.env`** como `DATABASE_URL` (ver sección 2.3). Para SQLAlchemy se usa
+   con el driver `psycopg2` (`postgresql+psycopg2://...`).
+4. **Una sola base de datos, dos "dueños" de tablas**:
+   - Las tablas de la aplicación (`users`, `crm_customers`, `crm_opportunities`, etc.)
+     se crean y versionan con **Alembic** (sección 2.4), en el esquema `public`.
+   - Las tablas de sesión/memoria de Agno (`ai.agno_sessions`, `ai.agno_schema_versions`)
+     las crea **Agno automáticamente** la primera vez que el agente corre, en su
+     propio esquema (`ai`), sin que Alembic las gestione.
+
+   Ambas conviven en la misma base de datos de Neon porque ambas leen `DATABASE_URL`,
+   pero cada una administra sus propias tablas de forma independiente.
+
+### 2.3 Variables de entorno (`.env`)
 
 ```bash
 cp .env.template .env
@@ -152,15 +219,17 @@ Edita `.env` con tu propia configuración. Variables clave:
 - `GROQ_API_KEY`: tu API Key de GROQ.
 - `DEFAULT_MODEL`, `DEFAULT_MAX_TOKENS`: modelo y límite de tokens del agente.
 - `DATABASE_URL`: cadena de conexión a PostgreSQL (usada tanto por SQLAlchemy/Alembic
-  como por `PostgresDb` de Agno):
+  como por `PostgresDb` de Agno). Con Neon, es la connection string de la sección 2.2:
 
   ```
-  DATABASE_URL=postgresql://usuario:password@localhost:5432/chat_with_llm
+  DATABASE_URL=postgresql+psycopg2://usuario:password@ep-xxxx-pooler.region.aws.neon.tech/neondb?sslmode=require
   ```
+
+  (Si usas Postgres local en vez de Neon: `postgresql://usuario:password@localhost:5432/chat_with_llm`).
 
 - `JWT_SECRET_KEY`: clave para firmar tokens de autenticación.
 
-### 2.3 Migraciones
+### 2.4 Migraciones
 
 ```bash
 alembic upgrade head
@@ -171,7 +240,7 @@ Esto aplica:
 - **Migración B**: crea las tablas `crm_customers`, `crm_products`, `crm_opportunities`,
   `crm_opportunity_items`, `crm_leads`, `crm_meetings`, `crm_audit_logs`.
 
-### 2.4 Datos demo
+### 2.5 Datos demo
 
 ```bash
 python -m scripts.seed_crm
@@ -196,7 +265,7 @@ Soporte Basico ($150), Modulo Analytics ($800).
 `vendedor@nexuscrm.com`), Carlos Ruiz/DataSoft (hace 10 dias, `vendedor@nexuscrm.com`),
 Ana Torres/CloudNine (hace 1 dia, `manager@nexuscrm.com`).
 
-### 2.5 Levantar la API
+### 2.6 Levantar la API
 
 ```bash
 uvicorn main:app --reload
