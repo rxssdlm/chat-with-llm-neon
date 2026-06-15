@@ -260,6 +260,17 @@ Edita `.env` con tu propia configuración. Variables clave:
 
 ### 2.4 Migraciones
 
+[Alembic](https://alembic.sqlalchemy.org/) es la herramienta de migraciones de
+SQLAlchemy: en vez de modificar tablas a mano (`ALTER TABLE ...`) o recrear la
+base de datos completa cada vez que cambia un modelo, cada cambio de esquema se
+guarda como un script versionado en `alembic/versions/`. Con eso, cualquiera que
+clone el repo deja su base de datos igual a la del resto del equipo con un solo
+comando, sin importar cuántos cambios se hayan acumulado.
+
+En este proyecto, Alembic gestiona las tablas del esquema `public` (`users`,
+`crm_customers`, `crm_opportunities`, etc., ver "dos dueños de tablas" en la
+sección 2.2). Para aplicar todas las migraciones pendientes:
+
 ```bash
 alembic upgrade head
 ```
