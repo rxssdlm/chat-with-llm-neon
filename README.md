@@ -1,8 +1,8 @@
 # 🤖 NexusCRM — Agente de AI Empresarial para Equipos de Ventas
 
-Proyecto final del diplomado de desarrollo de agentes AI, construido sobre
-`chat-with-llm` (FastAPI + GROQ/Agno + PostgreSQL). Implementa un agente
-conversacional con **tool calling**, **memoria persistente por usuario**,
+Proyecto final del diplomado de desarrollo de agentes AI: un agente conversacional
+para equipos de ventas, construido con **FastAPI**, **Agno** y **GROQ** sobre
+**PostgreSQL**. Implementa **tool calling**, **memoria persistente por usuario**,
 **seguridad anti prompt-injection**, **RBAC** y **confirmación humana** para
 acciones sensibles.
 
@@ -434,3 +434,14 @@ pedir "desde el 1 de junio" y el agente pasa `since="2026-06-01"`.
   con arrays de objetos anidados (`additionalProperties` falla en `/items/0`).
   Para agregar más de un producto se llama `update_opportunity` repetidamente con
   `add_product_name`/`add_quantity`.
+
+---
+
+## 11. Sobre el desarrollo
+
+Proyecto desarrollado de forma colaborativa: diseño de producto, decisiones de
+negocio (umbrales de confirmación, matriz RBAC, datos demo) y validación de cada
+flujo mediante pruebas en vivo, en pair-programming con un asistente de IA
+(Claude, Anthropic) para la implementación y la depuración iterativa — una
+aplicación práctica de las mismas habilidades de "trabajar con agentes de IA"
+que enseña el diplomado.
