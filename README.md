@@ -8,11 +8,12 @@ acciones sensibles.
 
 ---
 
-## 🎓 Conceptos clave (para quien empieza con agentes de AI)
+## 🎓 Conceptos clave (apuntes del proyecto)
 
-Si es la primera vez que exploras un proyecto de "agentes", esta sección explica
-los conceptos centrales que aparecen aquí y **por qué importan**, antes de entrar
-al detalle técnico de las siguientes secciones.
+Estos son mis apuntes sobre los conceptos centrales de este proyecto: qué
+significan, por qué los necesité, y las analogías que me ayudaron a entenderlos
+mejor. Sirven como referencia antes de entrar al detalle técnico de las
+siguientes secciones.
 
 ### ¿Qué hace que esto sea un "agente" y no un simple chatbot?
 
@@ -87,20 +88,20 @@ nuevo**. Ver la máquina de estados de `pending_action` en las secciones 6.3 y 6
 
 ### 6. ¿Por qué Agno? (en vez de llamar directo a la API de OpenAI/Claude/GROQ)
 
-Si nunca has usado un framework de agentes, es razonable preguntarse: *¿por qué no
-simplemente le hago un `fetch`/`requests.post` a la API de Chat Completions de
-OpenAI o Anthropic y ya?* Técnicamente se podría, pero el framework (en este caso
-**Agno**) se encarga de varias cosas que, si no, tendrías que programar a mano:
+La pregunta obvia es: *¿por qué no simplemente hacer un `fetch`/`requests.post` a
+la API de Chat Completions de OpenAI o Anthropic y ya?* Se podía, pero el
+framework (aquí, **Agno**) ya se encarga de varias cosas que si no, habría que
+programar a mano:
 
-- **El "loop" de tool calling.** Con una API directa, tú mismo tendrías que: enviar
-  el mensaje, revisar si la respuesta del modelo es "quiero llamar a esta función
-  con estos argumentos", ejecutar esa función en Python, devolverle el resultado al
-  modelo, y repetir hasta que el modelo conteste texto normal. Agno ya implementa
-  ese ciclo completo; tú solo escribes las funciones `@tool`.
-- **Memoria persistente sin tablas propias.** Como vimos en el concepto 2, Agno
-  guarda y recupera `session_state` e historial automáticamente vía `PostgresDb`.
-  Con una API directa, tendrías que diseñar tus propias tablas, serializar el
-  historial y armar el array de mensajes en cada request.
+- **El "loop" de tool calling.** Con una API directa, hay que: enviar el mensaje,
+  revisar si la respuesta del modelo es "quiero llamar a esta función con estos
+  argumentos", ejecutar esa función en Python, devolverle el resultado al modelo,
+  y repetir hasta que el modelo conteste texto normal. Agno ya hace ese ciclo
+  completo; solo falta escribir las funciones `@tool`.
+- **Memoria persistente sin tablas propias.** Como en el concepto 2, Agno guarda
+  y recupera `session_state` e historial automáticamente vía `PostgresDb`. Con
+  una API directa, habría que diseñar esas tablas, serializar el historial y
+  armar el array de mensajes en cada request.
 - **Independencia del proveedor del modelo.** Cada proveedor (OpenAI, Anthropic,
   GROQ) tiene un formato ligeramente distinto para describir tools y para las
   respuestas de "function calling". En Agno, cambiar de modelo es casi solo cambiar
@@ -110,10 +111,10 @@ OpenAI o Anthropic y ya?* Técnicamente se podría, pero el framework (en este c
 
 **¿Y la desventaja?** Es como manejar un auto automático en vez de uno de
 transmisión manual: Agno "hace los cambios de velocidad" (el protocolo de tool
-calling) por ti, así que tienes menos control sobre ese detalle y dependes de que
-el framework lo haga bien. Para un agente con 11 tools, memoria persistente y
-varios roles como este, vale la pena: escribes mucho menos código repetitivo y es
-menos probable que algo salga mal por implementar ese protocolo a mano.
+calling), así que hay menos control sobre ese detalle y se depende de que el
+framework lo haga bien. Para un agente con 11 tools, memoria persistente y varios
+roles como este, vale la pena: es mucho menos código repetitivo y menos probable
+que algo salga mal por implementarlo a mano.
 
 ### 7. ¿Por qué Llama 3.3 (vía GROQ) y no GPT o Claude directamente?
 
@@ -140,13 +141,13 @@ Para este proyecto se eligió **Llama 3.3 70B vía GROQ** porque:
 
 **El costo de esta elección**: Llama es algo menos consistente que GPT/Claude en
 casos límite. Por ejemplo, a veces enviaba la cantidad de un pedido como texto
-(`"20"`) en vez de número (`20`), algo que tuvimos que manejar explícitamente en
+(`"20"`) en vez de número (`20`), algo que hubo que manejar explícitamente en
 `tools.py` (ver sección 4).
 
 ---
 
-Con estos conceptos en mente, el resto del documento detalla cómo está
-implementado cada uno paso a paso.
+Con esto claro, el resto del documento va al detalle de cómo se implementó cada
+uno.
 
 ---
 
