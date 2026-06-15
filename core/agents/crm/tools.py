@@ -54,6 +54,22 @@ def _resolve_customer(db, name: str) -> Customer | None:
     ).first()
 
 
+def _coerce_int(value, field_name: str) -> int:
+    """Convierte a int valores que Groq a veces envia como string (ej. '20')."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"'{field_name}' debe ser un numero entero, recibi: {value!r}.")
+
+
+def _coerce_float(value, field_name: str) -> float:
+    """Convierte a float valores que Groq a veces envia como string (ej. '40')."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"'{field_name}' debe ser un numero, recibi: {value!r}.")
+
+
 def _resolve_product(db, product_name: str) -> Product | None:
     products = db.query(Product).filter(Product.name.ilike(f"%{product_name}%")).all()
     if not products:
@@ -152,11 +168,7 @@ def create_customer(
     phone: str | None = None,
     industry: str | None = None,
 ) -> dict:
-    """
-    Registra un nuevo cliente en el CRM. Usa esta herramienta solo cuando el usuario
-    pida explicitamente dar de alta un cliente nuevo (no un lead/prospecto). Antes de
-    crear, verifica con search_customer que el cliente no exista ya.
-    """
+    """Registra un nuevo cliente (no un lead/prospecto). Antes de crear, verifica con search_customer que no exista ya."""
     session_state = run_context.session_state
     try:
         with _db_session() as db:
@@ -180,14 +192,12 @@ def create_customer(
 
 
 @tool
-def create_opportunity(customer_name: str, product_name: str, quantity: int, run_context: RunContext) -> dict:
+def create_opportunity(customer_name: str, product_name: str, quantity: int | str, run_context: RunContext) -> dict:
     """
-    Crea una nueva oportunidad de venta para un cliente existente, con un producto y cantidad inicial.
-    Para agregar productos adicionales a una oportunidad ya creada, usa update_opportunity
-    con 'add_product_name' y 'add_quantity'.
-    Si el monto total supera el umbral de confirmacion, no crea la oportunidad de inmediato:
-    devuelve 'requires_confirmation': true y espera que el usuario confirme antes de reintentar
-    con los mismos parametros.
+    Crea una oportunidad para un cliente con un producto y cantidad inicial. Para agregar
+    productos a una oportunidad existente usa update_opportunity. Si el monto supera el
+    umbral de confirmacion, devuelve 'requires_confirmation': true sin crear nada; espera
+    confirmacion antes de reintentar con los mismos parametros.
     """
     session_state = run_context.session_state
     try:
@@ -232,6 +242,7 @@ def create_opportunity(customer_name: str, product_name: str, quantity: int, run
                 if not product:
                     return {"success": False, "error": f"No se encontro ningun producto que coincida con '{product_name}'."}
 
+                quantity = _coerce_int(quantity, "quantity")
                 total_amount = float(product.unit_price) * quantity
 
             if requires_confirmation_for_amount(total_amount) and not is_confirmation:
@@ -304,16 +315,14 @@ def update_opportunity(
     run_context: RunContext,
     opportunity_id: int | None = None,
     add_product_name: str | None = None,
-    add_quantity: int | None = None,
-    discount_pct: float | None = None,
+    add_quantity: int | str | None = None,
+    discount_pct: float | str | None = None,
     stage: str | None = None,
 ) -> dict:
     """
-    Actualiza una oportunidad existente: agrega un producto, aplica un descuento o cambia su etapa.
-    Si 'opportunity_id' no se especifica, se usa la oportunidad activa de la conversacion.
-    Para agregar un producto, especifica 'add_product_name' y 'add_quantity' (por defecto 1).
-    Descuentos mayores al 20% requieren confirmacion explicita del usuario y, ademas,
-    un rol de manager o admin para aplicarse.
+    Actualiza una oportunidad: agrega un producto (add_product_name/add_quantity), aplica
+    un descuento o cambia su etapa. Si 'opportunity_id' se omite, usa la oportunidad activa.
+    Descuentos > 20% requieren confirmacion y rol manager/admin.
     """
     session_state = run_context.session_state
     try:
@@ -336,12 +345,13 @@ def update_opportunity(
                 db.add(OpportunityItem(
                     opportunity_id=opportunity.id,
                     product_id=product.id,
-                    quantity=add_quantity or 1,
+                    quantity=_coerce_int(add_quantity, "add_quantity") if add_quantity is not None else 1,
                     unit_price=product.unit_price,
                 ))
                 db.flush()
 
             if discount_pct is not None:
+                discount_pct = _coerce_float(discount_pct, "discount_pct")
                 pending = session_state.get("pending_action")
                 is_confirmation = bool(
                     pending
@@ -434,12 +444,10 @@ def schedule_meeting(
     participants: str | None = None,
 ) -> dict:
     """
-    Agenda una reunion. Requiere 'title', 'scheduled_at' (fecha/hora en formato ISO 8601,
-    ej. '2026-06-15T10:00:00') y un cliente (explicito en 'customer_name' o el cliente
-    activo de la conversacion). Si al usuario le falta alguno de estos datos (fecha, hora,
-    cliente) o no menciona los participantes, NO llames esta herramienta todavia: pidele
-    esos datos primero. 'participants' es una lista de nombres separados por coma
-    (ej. 'Juan Perez, Roxana') y se guarda en las notas de la reunion.
+    Agenda una reunion. Requiere 'title', 'scheduled_at' (ISO 8601, ej. '2026-06-15T10:00:00'),
+    un cliente (explicito o el activo de la conversacion) y 'participants' (nombres separados
+    por coma, ej. 'Juan Perez, Roxana'). Si falta alguno de estos datos, NO llames esta
+    herramienta todavia: pidelos primero.
     """
     session_state = run_context.session_state
     try:
@@ -493,9 +501,8 @@ def schedule_meeting(
 @tool
 def get_sales_metrics(run_context: RunContext) -> dict:
     """
-    Devuelve metricas del pipeline de ventas: oportunidades por etapa, valor total
-    del pipeline, leads por estado y reuniones agendadas. Los vendedores ('seller')
-    solo ven sus propias oportunidades; managers y admins ven todas.
+    Metricas del pipeline: oportunidades por etapa, valor total, leads por estado y
+    reuniones agendadas. 'seller' solo ve sus propias oportunidades; manager/admin ven todas.
     """
     session_state = run_context.session_state
     try:
@@ -554,10 +561,8 @@ def send_email(to: str, subject: str, body: str, run_context: RunContext) -> dic
 @tool
 def get_customer_overview(customer_name: str, run_context: RunContext) -> dict:
     """
-    Devuelve una vista 360 de un cliente: sus datos de contacto, sus oportunidades
-    (etapa, monto total y descuento), sus leads asociados y sus reuniones agendadas.
-    Usa esta herramienta para responder preguntas sobre el "estatus" o "como va" un
-    cliente especifico (ej. "como va Globex", "cual es el estatus de Acme").
+    Vista 360 de un cliente: contacto, oportunidades (etapa, monto, descuento), leads y
+    reuniones. Usala para "como va Globex" / "cual es el estatus de Acme".
     """
     session_state = run_context.session_state
     try:
@@ -621,10 +626,8 @@ def get_customer_overview(customer_name: str, run_context: RunContext) -> dict:
 @tool
 def get_my_leads(run_context: RunContext, since: str | None = None) -> dict:
     """
-    Devuelve los leads (prospectos) creados por el usuario actual desde una fecha dada,
-    agrupados por estado. Si 'since' no se especifica, usa por defecto los ultimos 7
-    dias (sirve para responder "mis leads de esta semana"). Si se especifica, debe ser
-    una fecha en formato ISO 8601 (ej. '2026-06-01').
+    Leads creados por el usuario actual desde 'since' (ISO 8601, ej. '2026-06-01'),
+    agrupados por estado. Si se omite, usa los ultimos 7 dias ("mis leads de esta semana").
     """
     session_state = run_context.session_state
     try:
