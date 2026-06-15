@@ -108,12 +108,40 @@ OpenAI o Anthropic y ya?* Técnicamente se podría, pero el framework (en este c
   por ejemplo); el resto del código (tools, `session_state`, instrucciones) no
   cambia.
 
-**El costo de esto**: Agno agrega una capa de abstracción y una dependencia más,
-y oculta parte del detalle "de bajo nivel" del protocolo de tool calling, lo que da
-menos control fino que escribirlo a mano. Para un agente con 11 tools, memoria
-persistente y múltiples roles como este, ese costo vale la pena: el framework
-absorbe el código repetitivo (boilerplate) y reduce la posibilidad de implementar
-mal el protocolo de tool calling.
+**¿Y la desventaja?** Es como manejar un auto automático en vez de uno de
+transmisión manual: Agno "hace los cambios de velocidad" (el protocolo de tool
+calling) por ti, así que tienes menos control sobre ese detalle y dependes de que
+el framework lo haga bien. Para un agente con 11 tools, memoria persistente y
+varios roles como este, vale la pena: escribes mucho menos código repetitivo y es
+menos probable que algo salga mal por implementar ese protocolo a mano.
+
+### 7. ¿Por qué Llama 3.3 (vía GROQ) y no GPT o Claude directamente?
+
+Empresas como OpenAI (GPT), Anthropic (Claude), Google (Gemini) o Meta (Llama)
+entrenan cada una su propio modelo: arquitectura, datos de entrenamiento y "estilo"
+distintos. No son intercambiables 1 a 1 en calidad, costo ni velocidad, aunque
+(gracias a Agno, ver el concepto anterior) cambiar de uno a otro aquí sería casi
+solo cambiar una línea de código.
+
+Además hay una diferencia de modelo de negocio:
+
+- **Modelos cerrados** (GPT, Claude, Gemini): solo se usan vía la API de su empresa,
+  con costo por token desde el primer uso.
+- **Modelos abiertos** (Llama, Mistral, etc.): cualquiera puede correrlos, incluyendo
+  proveedores que los hospedan gratis o muy barato.
+
+Para este proyecto se eligió **Llama 3.3 70B vía GROQ** porque:
+
+- GROQ ofrece una API gratuita con cuota diaria generosa, sin pedir tarjeta de crédito.
+- Su hardware especializado responde casi al instante, ideal para un chat en vivo.
+- Llama 3.3 70B es suficientemente capaz para esta tarea: decidir qué tool llamar,
+  con qué argumentos, y redactar una respuesta en español no requiere el modelo
+  "más inteligente" del mercado.
+
+**El costo de esta elección**: Llama es algo menos consistente que GPT/Claude en
+casos límite. Por ejemplo, a veces enviaba la cantidad de un pedido como texto
+(`"20"`) en vez de número (`20`), algo que tuvimos que manejar explícitamente en
+`tools.py` (ver sección 4).
 
 ---
 
@@ -315,6 +343,22 @@ historial y `session_state` se recuperan automáticamente en cada llamada.
 ---
 
 ## 4. Las 11 Tools del agente
+
+### ¿Cómo sabe el agente qué hacer con cada tool? (prompt engineering)
+
+Cada fila de la tabla viene del **docstring** de la función `@tool` en `tools.py`:
+ese texto, junto con el nombre y los tipos de los parámetros, es lo que el LLM "lee"
+para decidir qué herramienta usar, cuándo usarla y con qué argumentos (de ahí Agno
+genera automáticamente el JSON schema que se envía al modelo). Por ejemplo, el
+docstring de `schedule_meeting` le indica al modelo qué formato de fecha esperar y
+que NO debe llamar la tool si falta algún dato.
+
+Además de esos docstrings por tool, hay un segundo nivel de instrucciones:
+`CRM_INSTRUCTIONS` en `agent.py`, las reglas generales del agente (cómo usar
+`session_state`, qué hacer si una tool falla, cuándo detenerse a pedir
+confirmación, etc.). Tanto los docstrings como `CRM_INSTRUCTIONS` son **prompt
+engineering**: texto en lenguaje natural que moldea el comportamiento del LLM, sin
+cambiar una sola línea de la lógica de negocio en Python.
 
 | Tool | Descripción |
 |---|---|
