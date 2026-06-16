@@ -60,9 +60,9 @@ async def startup_event():
     """
     Evento que se ejecuta al iniciar la aplicación.
     """
-    print(f"🚀 {settings.app_name} v{settings.app_version} iniciado")
-    print(f"📚 Documentación disponible en: http://localhost:8000/docs")
-    print(f"🌐 Interfaz web disponible en: http://localhost:8000/")
+    print(f"[OK] {settings.app_name} v{settings.app_version} iniciado")
+    print(f"[OK] Documentacion disponible en: http://localhost:8000/docs")
+    print(f"[OK] Interfaz web disponible en: http://localhost:8000/")
 
 
 if __name__ == "__main__":
