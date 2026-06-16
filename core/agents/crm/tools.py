@@ -439,13 +439,59 @@ def update_opportunity(
         return {"success": False, "error": str(e)}
 
 
+_DATE_FORMATS = [
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%Y-%m-%d",
+    "%d/%m/%Y %H:%M",
+    "%d/%m/%Y",
+]
+
+_MESES_ES = {
+    "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
+    "mayo": "05", "junio": "06", "julio": "07", "agosto": "08",
+    "septiembre": "09", "octubre": "10", "noviembre": "11", "diciembre": "12",
+}
+
+
+def _parse_datetime(value: str) -> datetime | None:
+    value = value.strip()
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        pass
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    # Intenta parsear fechas en español: "5 de julio del 2026" / "5 de julio de 2026"
+    import re
+    m = re.search(
+        r"(\d{1,2})\s+de\s+(\w+)\s+de[l]?\s+(\d{4})(?:\s+a\s+las?\s+(\d{1,2})[:\.](\d{2}))?",
+        value.lower(),
+    )
+    if m:
+        day, month_name, year = m.group(1), m.group(2), m.group(3)
+        hour, minute = m.group(4) or "0", m.group(5) or "0"
+        month = _MESES_ES.get(month_name)
+        if month:
+            try:
+                return datetime(int(year), int(month), int(day), int(hour), int(minute))
+            except ValueError:
+                pass
+    return None
+
+
 @tool
 def schedule_meeting(
     title: str,
     scheduled_at: str,
     run_context: RunContext,
     customer_name: str | None = None,
-    opportunity_id: int | None = None,
+    opportunity_id: int | str | None = None,
     participants: str | None = None,
 ) -> dict:
     """
@@ -456,13 +502,21 @@ def schedule_meeting(
     """
     session_state = run_context.session_state
     try:
-        try:
-            when = datetime.fromisoformat(scheduled_at)
-        except ValueError:
+        when = _parse_datetime(scheduled_at)
+        if when is None:
             return {
                 "success": False,
-                "error": f"No pude interpretar la fecha/hora '{scheduled_at}'. Usa formato ISO 8601, ej: '2026-06-15T10:00:00'.",
+                "error": (
+                    f"No pude interpretar la fecha/hora '{scheduled_at}'. "
+                    "Usa formato ISO 8601, ej: '2026-06-15T10:00:00'."
+                ),
             }
+
+        if opportunity_id is not None:
+            try:
+                opportunity_id = int(opportunity_id)
+            except (TypeError, ValueError):
+                opportunity_id = None
 
         with _db_session() as db:
             customer = None

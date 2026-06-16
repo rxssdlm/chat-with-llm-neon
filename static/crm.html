@@ -479,8 +479,19 @@
             userEmail = null;
             localStorage.removeItem('nexuscrm_token');
             localStorage.removeItem('nexuscrm_email');
+            resetChat();
             document.getElementById('app').style.display = 'none';
             document.getElementById('loginCard').style.display = 'block';
+        }
+
+        function resetChat() {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-label">🤖 NexusCRM</div>
+                    <div class="message-bubble">¡Hola! Soy NexusCRM, tu asistente de ventas. Puedo ayudarte a buscar clientes, crear oportunidades, agendar reuniones y más. ¿En qué te ayudo?</div>
+                </div>`;
+            updateSidebar({});
         }
 
         function showApp() {
