@@ -384,12 +384,7 @@
                 <button onclick="logout()">Cerrar sesión</button>
             </div>
 
-            <div class="messages" id="messages">
-                <div class="message assistant">
-                    <div class="message-label">🤖 NexusCRM</div>
-                    <div class="message-bubble">¡Hola! Soy NexusCRM, tu asistente de ventas. Puedo ayudarte a buscar clientes, crear oportunidades, agendar reuniones y más. ¿En qué te ayudo?</div>
-                </div>
-            </div>
+            <div class="messages" id="messages"></div>
 
             <div class="input-area">
                 <div class="input-container">
@@ -437,6 +432,7 @@
     <script>
         let token = localStorage.getItem('nexuscrm_token') || null;
         let userEmail = localStorage.getItem('nexuscrm_email') || null;
+        let chatHistory = [];
 
         if (token) {
             showApp();
@@ -485,19 +481,40 @@
         }
 
         function resetChat() {
-            const messagesDiv = document.getElementById('messages');
-            messagesDiv.innerHTML = `
-                <div class="message assistant">
-                    <div class="message-label">🤖 NexusCRM</div>
-                    <div class="message-bubble">¡Hola! Soy NexusCRM, tu asistente de ventas. Puedo ayudarte a buscar clientes, crear oportunidades, agendar reuniones y más. ¿En qué te ayudo?</div>
-                </div>`;
+            chatHistory = [];
+            document.getElementById('messages').innerHTML = '';
             updateSidebar({});
+        }
+
+        function persistChat() {
+            if (userEmail) {
+                localStorage.setItem('nexuscrm_chat_' + userEmail, JSON.stringify(chatHistory));
+            }
+        }
+
+        function loadChat() {
+            const saved = localStorage.getItem('nexuscrm_chat_' + userEmail);
+            if (saved) {
+                try {
+                    const history = JSON.parse(saved);
+                    if (history.length > 0) {
+                        chatHistory = history;
+                        document.getElementById('messages').innerHTML = '';
+                        for (const msg of chatHistory) {
+                            addMessage(msg.role, msg.content, false, msg.label, msg.toolCalls, false);
+                        }
+                        return;
+                    }
+                } catch (e) { /* historial corrupto, ignorar */ }
+            }
+            addMessage('assistant', '¡Hola! Soy NexusCRM, tu asistente de ventas. Puedo ayudarte a buscar clientes, crear oportunidades, agendar reuniones y más. ¿En qué te ayudo?', false, '🤖 NexusCRM', null, true);
         }
 
         function showApp() {
             document.getElementById('loginCard').style.display = 'none';
             document.getElementById('app').style.display = 'flex';
             document.getElementById('userInfo').textContent = userEmail || 'Asistente de ventas';
+            loadChat();
         }
 
         // Markdown muy simple: **negrita**, listas "- " y saltos de linea
@@ -588,7 +605,7 @@
             }
         }
 
-        function addMessage(role, content, isLoading = false, label = null, toolCalls = null) {
+        function addMessage(role, content, isLoading = false, label = null, toolCalls = null, save = true) {
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
             const messageId = 'msg-' + Date.now() + '-' + Math.random();
@@ -621,6 +638,11 @@
             messageDiv.appendChild(bubble);
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            if (!isLoading && save) {
+                chatHistory.push({ role, content, label, toolCalls });
+                persistChat();
+            }
 
             return messageId;
         }
