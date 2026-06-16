@@ -24,6 +24,12 @@ class Settings(BaseSettings):
         ...,
         description="API Key de GROQ. Obtén una en https://console.groq.com/"
     )
+
+    # OpenRouter (alternativa gratuita - openrouter.ai)
+    openrouter_api_key: str = Field(
+        default="",
+        description="API Key de OpenRouter. Obtén una en https://openrouter.ai/"
+    )
     
         # 🔐 Clave secreta para firmar JWT
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-secret-change-me")

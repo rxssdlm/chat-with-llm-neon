@@ -313,7 +313,7 @@ def create_opportunity(customer_name: str, product_name: str, quantity: int | st
 @tool
 def update_opportunity(
     run_context: RunContext,
-    opportunity_id: int | None = None,
+    opportunity_id: int | str | None = None,
     add_product_name: str | None = None,
     add_quantity: int | str | None = None,
     discount_pct: float | str | None = None,
@@ -326,6 +326,11 @@ def update_opportunity(
     """
     session_state = run_context.session_state
     try:
+        if opportunity_id is not None:
+            try:
+                opportunity_id = int(opportunity_id)
+            except (TypeError, ValueError):
+                pass
         opp_id = opportunity_id or (session_state.get("opportunity") or {}).get("id")
         if not opp_id:
             return {

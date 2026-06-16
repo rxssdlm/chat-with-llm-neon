@@ -11,6 +11,7 @@ import logging
 
 from agno.agent import Agent
 from agno.models.groq import Groq
+from agno.models.openai import OpenAIChat
 from agno.db.postgres import PostgresDb
 
 from core.config import settings
@@ -37,6 +38,10 @@ CRM_INSTRUCTIONS = [
     "de forma profesional, clara y concisa.",
     "",
     "REGLAS DE USO DE HERRAMIENTAS (TOOLS):",
+    "0. OBLIGATORIO: Para CUALQUIER accion de escritura (crear, actualizar, aplicar descuento, "
+    "agendar, enviar) DEBES llamar la herramienta correspondiente primero, sin excepcion. "
+    "Nunca respondas sobre el resultado de una accion sin haber llamado la tool. "
+    "Nunca apliques logica de negocio (RBAC, confirmaciones) por tu cuenta: deja que la tool lo haga.",
     "1. Para cualquier dato de clientes, productos, oportunidades, leads, reuniones o metricas, "
     "usa SIEMPRE la herramienta correspondiente. Nunca inventes nombres, precios, IDs ni cifras.",
     "2. Resuelve referencias contextuales ('esa oportunidad', 'agregale tambien...', 'ese cliente') "
@@ -87,7 +92,7 @@ CRM_INSTRUCTIONS = [
 
 def create_crm_agent(user_id: str, session_id: str, user_role: str, db_url: str) -> Agent:
     return Agent(
-        model=Groq(id=settings.default_model, max_tokens=settings.default_max_tokens, temperature=0),
+        model=OpenAIChat(id="gpt-4o-mini", max_tokens=settings.default_max_tokens),
         db=PostgresDb(db_url=db_url),
         user_id=user_id,
         session_id=session_id,
