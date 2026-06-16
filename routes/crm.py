@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from core.agents.crm.agent import run_crm_agent
@@ -16,6 +16,7 @@ from schemas.crm import (
     CustomerListResponse,
     ProductListResponse,
     OpportunityListResponse,
+    AuditLogListResponse,
 )
 
 router = APIRouter(prefix="/crm", tags=["crm"])
@@ -107,3 +108,23 @@ def list_opportunities(
         query = query.filter(Opportunity.created_by_id == current_user.id)
     opportunities = query.order_by(Opportunity.created_at.desc()).all()
     return OpportunityListResponse(opportunities=opportunities, total=len(opportunities))
+
+
+@router.get("/audit-logs", response_model=AuditLogListResponse)
+def list_audit_logs(
+    limit: int = Query(default=20, ge=1, le=100),
+    event_type: str | None = Query(default=None, description="Filtrar por tipo: tool_call, security_block, error"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Historial de auditoría: cada tool ejecutada, bloqueo de seguridad y error.
+    Los vendedores solo ven sus propios logs; managers y admins ven todos.
+    """
+    query = db.query(CRMAuditLog)
+    if current_user.role == "seller":
+        query = query.filter(CRMAuditLog.user_id == current_user.id)
+    if event_type:
+        query = query.filter(CRMAuditLog.event_type == event_type)
+    logs = query.order_by(CRMAuditLog.created_at.desc()).limit(limit).all()
+    return AuditLogListResponse(logs=logs, total=len(logs))

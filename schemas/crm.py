@@ -93,3 +93,26 @@ class OpportunityResponse(BaseModel):
 class OpportunityListResponse(BaseModel):
     opportunities: list[OpportunityResponse]
     total: int
+
+
+# ─────────────────────────────────────────
+# AUDIT LOGS
+# ─────────────────────────────────────────
+
+class AuditLogResponse(BaseModel):
+    id: int
+    user_id: int | None
+    session_id: str | None
+    event_type: str
+    tool_name: str | None
+    user_message: str | None
+    details: dict[str, Any]
+    success: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AuditLogListResponse(BaseModel):
+    logs: list[AuditLogResponse]
+    total: int
