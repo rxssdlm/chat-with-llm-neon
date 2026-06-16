@@ -487,18 +487,19 @@ def _parse_datetime(value: str) -> datetime | None:
 
 @tool
 def schedule_meeting(
-    title: str,
     scheduled_at: str,
     run_context: RunContext,
+    title: str | None = None,
     customer_name: str | None = None,
     opportunity_id: int | str | None = None,
     participants: str | None = None,
 ) -> dict:
     """
-    Agenda una reunion. Requiere 'title', 'scheduled_at' (ISO 8601, ej. '2026-06-15T10:00:00'),
-    un cliente (explicito o el activo de la conversacion) y 'participants' (nombres separados
-    por coma, ej. 'Juan Perez, Roxana'). Si falta alguno de estos datos, NO llames esta
-    herramienta todavia: pidelos primero.
+    Agenda una reunion. Unico campo obligatorio: 'scheduled_at' (ISO 8601, ej. '2026-06-15T10:00:00').
+    'title' es opcional: si no se da, se genera automaticamente ('Reunion con {cliente}').
+    El cliente se toma del activo en sesion si no se especifica 'customer_name'.
+    'participants' es opcional. Si solo falta 'scheduled_at', pidela y llama la herramienta
+    en cuanto el usuario la proporcione sin pedir ningun otro dato.
     """
     session_state = run_context.session_state
     try:
@@ -528,6 +529,7 @@ def schedule_meeting(
             if not customer:
                 return {"success": False, "error": "No se especifico un cliente valido para la reunion."}
 
+            resolved_title = title or f"Reunion con {customer.name}"
             opp_id = opportunity_id or (session_state.get("opportunity") or {}).get("id")
             user_id = session_state.get("user_id")
 
@@ -535,7 +537,7 @@ def schedule_meeting(
                 customer_id=customer.id,
                 opportunity_id=opp_id,
                 created_by_id=int(user_id) if user_id else None,
-                title=title,
+                title=resolved_title,
                 scheduled_at=when,
                 status="scheduled",
                 notes=f"Participantes: {participants}" if participants else None,

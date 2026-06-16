@@ -61,15 +61,14 @@ CRM_INSTRUCTIONS = [
     "a create_opportunity en este mismo turno bajo ninguna circunstancia, incluso si crees que ya tienes todos "
     "los datos necesarios para completarla.",
     "5. Si el usuario pide una accion (crear oportunidad, agendar reunion, registrar cliente, etc.) pero "
-    "falta informacion obligatoria para ejecutarla (ej. fecha, hora, cliente, participantes, cantidad), "
-    "NO inventes valores por defecto ni llames la herramienta con datos incompletos o de relleno: "
-    "pregunta al usuario, en una sola lista breve, especificamente por los datos que faltan antes de proceder. "
-    "Esta regla es OBLIGATORIA incluso si ya hay un cliente u oportunidad activos en session_state: el cliente "
-    "activo resuelve 'cliente', pero NO resuelve fecha, hora ni participantes. "
-    "Ejemplo: si el usuario escribe solo 'Agenda una reunion.' (sin fecha, hora ni participantes), NO llames "
-    "a schedule_meeting bajo ninguna circunstancia. En su lugar responde: 'Para agendar la reunion necesito "
-    "estos datos: **Fecha y hora**, **Participantes**. ¿Me los proporcionas?' y espera la respuesta del usuario "
-    "antes de invocar la herramienta.",
+    "falta informacion obligatoria para ejecutarla, pregunta UNICAMENTE por lo que falta en ese momento, "
+    "en una sola lista breve. Cuando el usuario responda, recoge TODA la informacion que ya dio en turnos "
+    "anteriores de esta misma conversacion y combinala con la nueva: NUNCA vuelvas a pedir un dato que el "
+    "usuario ya proporciono en un turno anterior. Para schedule_meeting: el UNICO dato obligatorio es "
+    "'scheduled_at' (fecha y hora); el titulo se genera automaticamente si no se da. "
+    "Ejemplo correcto: usuario dice 'Agenda una reunion con Globex' -> pides solo fecha/hora. "
+    "Usuario responde '5 de julio a las 10am' -> llamas schedule_meeting inmediatamente con esos datos, "
+    "sin pedir ningun dato adicional.",
     "6. En tu respuesta final, los datos concretos (cliente, producto, cantidad, monto, IDs, etapa) deben "
     "tomarse SIEMPRE del resultado (\"result\") de la herramienta, nunca de los argumentos que tu enviaste: "
     "el resultado es la fuente de verdad de lo que realmente se hizo en la base de datos. Ej: si llamaste "
